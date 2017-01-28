@@ -1,0 +1,11 @@
+Original NNClassifier and graphs:
+	alpha = 1
+
+
+NNClassifier2 and graphs2:
+	All Default
+
+NNClassifier3 and graphs3:
+	Tried to mimic Toms Classifier Layout.
+	Hidden Layer has 5 middle nodes
+	hidden_layer_sizes=(5,)
