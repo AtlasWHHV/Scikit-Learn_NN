@@ -12,8 +12,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.externals import joblib
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import roc_curve
+from sklearn.metrics import classification_report
+from sklearn.feature_selection import f_classif, SelectPercentile
 
-start_time =time.time()
 
 logging.basicConfig(level = logging.DEBUG)
 
@@ -112,97 +113,44 @@ NN = joblib.load("/phys/groups/tev/scratch4/users/arbo94/NN/NNClassifier2/NNClas
 '''Predictions'''
 
 logging.info("Probability Predicting")
-prob_sig = NN.predict_proba(uncut)
-prob_bkg = NN.predict_proba(test_bkg)
+prob_sig = NN.predict(uncut)#NN.predict_proba(uncut)
+prob_bkg = NN.predict(test_bkg)#NN.predict_proba(test_bkg)
+
+print (prob_sig)
+
+'''GET PARAMS'''
+logging.info("Getting Params")
+params = NN.get_params()
+
+print(params)
+
+#input("Press Enter To Continue")
 
 
-'''SCIKIT ROC CURVE'''
-
-logging.info("Creating ROC Curve")
-
-merged_prob = np.concatenate((prob_sig[:,1],prob_bkg[:,1]),axis=0)
-
-#####################################################
-#                                                   #
-#   NOTE: [:,1] is for all of the second column of  #
-#     proba_predict function's output. we are       #
-#     sending the probabilities of the event being  #
-#     a signal event through the ROC Curve          #
-#                                                   #
-#####################################################
+''' classification_report '''
+logging.info("Getting Classification Report")
 
 
-class_prob_sig = [1]*len(prob_sig[:,1])
-class_prob_bkg = [0]*len(prob_bkg[:,1])
+merged_prob = np.concatenate((prob_sig,prob_bkg), axis=0)
+
+
+class_prob_sig = [1]*len(prob_sig)
+class_prob_bkg = [0]*len(prob_bkg)
 merged_prob_class = class_prob_sig + class_prob_bkg
 
 
-fpr_sig, tpr_sig, thresholds_sig = roc_curve(merged_prob_class, merged_prob)
-auc_score= roc_auc_score(merged_prob_class, merged_prob)
-text = "AUC score is: "+ str(auc_score)
 
 
+labels = ["Background", "Signal"]
 
-''' Loading TMVA Info '''
-logging.info("setting up TMVA Data")
-tmva_data_loc = "Hv_NN_2tree.root"
-tmva_tree = "TestTree"
-tmva_MLP = ["MLP"]
-tmva_classID = ["classID"]
+report = classification_report(merged_prob_class, merged_prob, target_names = labels )
+print(report)
 
-tmva_data = rnp.root2array(tmva_data_loc,tmva_tree,tmva_MLP)
-tmva_classification = rnp.root2array(tmva_data_loc,tmva_tree,tmva_classID)
+''' Looking At Classifier Attributes'''
+print("Classifier Attributes:")
+print(NN.coefs_)
+print(NN.intercepts_)
 
-tmva_classification = tmva_classification.astype(int)
-tmva_data = tmva_data.astype(float)
-
-
-def tmva_converter(array):
-
-	primer = []
-	for i in range(0,len(array)):
-		if (array[i]==1):
-			primer.append(0) 
-		else:
-			primer.append(1)
-
-	return primer
-
-np.set_printoptions(threshold=np.inf)
-tmva_classification = tmva_converter(tmva_classification)
-
-'''TMVA ROC CURVE'''
-logging.info("Setting up TMVA Roc Curve")
-tmva_fpr_sig, tmva_tpr_sig, tmva_thresholds_sig = roc_curve(tmva_classification, tmva_data)
-tmva_auc_score= roc_auc_score(tmva_classification, tmva_data)
-tmva_text = "TMVA AUC score is: "+ str(tmva_auc_score)
-
-
-
-'''Setting up Histograms'''
-logging.info("Setting up Histograms")
-
-fig7 = plt.figure()
-plot7 = fig7.add_subplot(1,1,1)
-plot7.plot(fpr_sig,tpr_sig,"b", label = "Sci-Kit ROC")
-plot7.plot(tmva_fpr_sig, tmva_tpr_sig, "r", label = "TMVA ROC")
-plot7.set_title("Scikit vs TMVA Neural Net ROC comparisons")
-plot7.set_xlabel("False Positve Rate")
-plot7.set_ylabel("True Positive Rate")
-plot7.plot([0,1],[0,1],"r--", label = "Random Guess Line")
-plot7.set_xlim([0,1])
-plot7.set_ylim([0,1])
-plot7.grid(True)
-plot7.legend(bbox_to_anchor=(.6,.4))
-plot7.annotate(text, xy = (0.5,0.1))
-plot7.annotate(tmva_text, xy = (.5,.05))
-
-
-
-save7 = fig7.savefig("ROC_Comparison.png")
-
-
-end_time = time.time()
-print("completed in", (end_time - start_time)/60, "minutes")
-
-plt.draw()
+''' testing feature selection '''
+print("Testing Feature Selection:")
+feat_select = SelectPercentile()
